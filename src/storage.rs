@@ -13,6 +13,13 @@ pub struct GitAccount {
     pub user_email: String,
 }
 
+// New struct to hold all storage data
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct StorageData {
+    pub accounts: Vec<GitAccount>,
+    pub selected_profile: Option<String>,
+}
+
 fn get_storage_path() -> io::Result<PathBuf> {
     if let Some(proj_dirs) = ProjectDirs::from("com", "YourName", "GitManager") {
         let config_dir = proj_dirs.config_dir();
@@ -26,10 +33,11 @@ fn get_storage_path() -> io::Result<PathBuf> {
     }
 }
 
-pub fn load_accounts() -> io::Result<Vec<GitAccount>> {
+// Renamed and updated to load StorageData
+pub fn load_storage() -> io::Result<StorageData> {
     let path = get_storage_path()?;
     if !path.exists() {
-        return Ok(Vec::new()); // Return empty list if file doesn't exist
+        return Ok(StorageData::default()); // Return default empty storage if file doesn't exist
     }
 
     let file = File::open(path)?;
@@ -37,18 +45,20 @@ pub fn load_accounts() -> io::Result<Vec<GitAccount>> {
     serde_json::from_reader(reader).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-pub fn save_accounts(accounts: &[GitAccount]) -> io::Result<()> {
+// Renamed and updated to save StorageData
+pub fn save_storage(data: &StorageData) -> io::Result<()> {
     let path = get_storage_path()?;
     let file = File::create(path)?;
     let writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(writer, accounts)
+    serde_json::to_writer_pretty(writer, data)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
 }
 
+// Updated to use StorageData
 pub fn add_account(account: GitAccount) -> io::Result<()> {
-    let mut accounts = load_accounts()?;
-    // Optional: Check for duplicate profile names
-    if accounts
+    let mut storage = load_storage()?;
+    if storage
+        .accounts
         .iter()
         .any(|a| a.profile_name == account.profile_name)
     {
@@ -57,6 +67,34 @@ pub fn add_account(account: GitAccount) -> io::Result<()> {
             format!("Profile '{}' already exists", account.profile_name),
         ));
     }
-    accounts.push(account);
-    save_accounts(&accounts)
+    storage.accounts.push(account);
+    save_storage(&storage)
+}
+
+// New function to get the list of accounts
+pub fn get_accounts() -> io::Result<Vec<GitAccount>> {
+    load_storage().map(|data| data.accounts)
+}
+
+// New function to get the selected profile name
+pub fn get_selected_profile() -> io::Result<Option<String>> {
+    load_storage().map(|data| data.selected_profile)
+}
+
+// New function to set the selected profile name
+pub fn set_selected_profile(profile_name: &str) -> io::Result<()> {
+    let mut storage = load_storage()?;
+    // Check if the profile exists before setting it
+    if !storage
+        .accounts
+        .iter()
+        .any(|a| a.profile_name == profile_name)
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Profile '{}' not found", profile_name),
+        ));
+    }
+    storage.selected_profile = Some(profile_name.to_string());
+    save_storage(&storage)
 }

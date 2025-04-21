@@ -2,7 +2,9 @@ use clap::{Args, Parser, Subcommand};
 use std::process; // For exiting with error code
 
 mod storage; // Declare the storage module
-use storage::{add_account, load_accounts, GitAccount};
+use storage::{
+    add_account, get_accounts, get_selected_profile, set_selected_profile, GitAccount,
+};
 
 /// Simple CLI tool template in Rust
 #[derive(Parser)]
@@ -18,8 +20,11 @@ struct Cli {
 enum Commands {
     /// Add a new git account profile
     Add(AddArgs),
+    /// List existing git account profiles
     List,
-    // Add other commands like Use, Remove later
+    /// Set the active git account profile
+    Use(UseArgs),
+    // Add other commands like Remove later
 }
 
 #[derive(Args)]
@@ -35,6 +40,12 @@ struct AddArgs {
     /// The git user.email for this profile
     #[arg(short, long)]
     email: String,
+}
+
+#[derive(Args)]
+struct UseArgs {
+    /// The name of the profile to activate
+    profile_name: String,
 }
 
 fn main() {
@@ -58,26 +69,49 @@ fn main() {
                 }
             }
         }
-        Commands::List => match load_accounts() {
-            Ok(accounts) => {
-                if accounts.is_empty() {
-                    println!("No accounts configured yet. Use 'add' command to add one.");
-                } else {
-                    println!("Available git account profiles:");
-                    for account in accounts {
-                        println!(
-                            "- {}: {} <{}>",
-                            account.profile_name, account.user_name, account.user_email
-                        );
+        Commands::List => {
+            match (get_accounts(), get_selected_profile()) {
+                (Ok(accounts), Ok(selected)) => {
+                    if accounts.is_empty() {
+                        println!("No accounts configured yet. Use 'add' command to add one.");
+                    } else {
+                        println!("Available git account profiles:");
+                        let selected_name = selected.as_deref(); // Get &str or None
+                        for account in accounts {
+                            let marker = if Some(account.profile_name.as_str()) == selected_name {
+                                "*" // Mark the selected profile
+                            } else {
+                                "-"
+                            };
+                            println!(
+                                "{} {}: {} <{}>",
+                                marker, account.profile_name, account.user_name, account.user_email
+                            );
+                        }
+                        if selected_name.is_none() {
+                            println!("\nNo profile currently selected. Use 'use <profile_name>' to select one.");
+                        }
                     }
+                    Ok(())
                 }
-                Ok(())
+                (Err(e), _) | (_, Err(e)) => {
+                    eprintln!("Error loading data: {}", e);
+                    Err(e)
+                }
             }
-            Err(e) => {
-                eprintln!("Error loading accounts: {}", e);
-                Err(e)
+        }
+        Commands::Use(args) => {
+            match set_selected_profile(&args.profile_name) {
+                Ok(_) => {
+                    println!("Successfully set active profile to '{}'.", args.profile_name);
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("Error setting profile: {}", e);
+                    Err(e)
+                }
             }
-        },
+        }
     };
 
     if result.is_err() {
