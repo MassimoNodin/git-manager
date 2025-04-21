@@ -20,7 +20,7 @@ pub struct StorageData {
     pub selected_profile: Option<String>,
 }
 
-fn get_storage_path() -> io::Result<PathBuf> {
+pub fn get_storage_path() -> io::Result<PathBuf> {
     if let Some(proj_dirs) = ProjectDirs::from("com", "YourName", "GitManager") {
         let config_dir = proj_dirs.config_dir();
         fs::create_dir_all(config_dir)?; // Ensure the directory exists
@@ -79,6 +79,15 @@ pub fn get_accounts() -> io::Result<Vec<GitAccount>> {
 // New function to get the selected profile name
 pub fn get_selected_profile() -> io::Result<Option<String>> {
     load_storage().map(|data| data.selected_profile)
+}
+
+// New function to get a specific account by profile name
+pub fn get_account_by_profile_name(profile_name: &str) -> io::Result<Option<GitAccount>> {
+    let storage = load_storage()?;
+    Ok(storage
+        .accounts
+        .into_iter() // Use into_iter to take ownership if needed, or iter().find().cloned()
+        .find(|a| a.profile_name == profile_name))
 }
 
 // New function to set the selected profile name
