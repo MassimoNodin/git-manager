@@ -30,24 +30,24 @@ jobs:
     - name: Build release binary
       run: cargo build --release --verbose
 
-    # Determine binary path and name based on OS
     - name: Set binary path and name
       id: set_paths
       run: |
         if [ "${{ runner.os }}" == "Windows" ]; then
-          echo "BINARY_PATH=target/release/git-manager.exe" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=git-manager-windows-amd64.exe" >> $GITHUB_ENV
+          echo "binary_path=target/release/git-manager.exe" >> $GITHUB_OUTPUT
+          echo "artifact_name=git-manager-windows-amd64.exe" >> $GITHUB_OUTPUT
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          echo "BINARY_PATH=target/release/git-manager" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=git-manager-macos-amd64" >> $GITHUB_ENV
+          echo "binary_path=target/release/git-manager" >> $GITHUB_OUTPUT
+          echo "artifact_name=git-manager-macos-amd64" >> $GITHUB_OUTPUT
         else # Linux
-          echo "BINARY_PATH=target/release/git-manager" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=git-manager-linux-amd64" >> $GITHUB_ENV
+          echo "binary_path=target/release/git-manager" >> $GITHUB_OUTPUT
+          echo "artifact_name=git-manager-linux-amd64" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.ARTIFACT_NAME }} # Use dynamic artifact name
-        path: ${{ env.BINARY_PATH }}   # Use dynamic binary path
+        name: ${{ steps.set_paths.outputs.artifact_name }}
+        path: ${{ steps.set_paths.outputs.binary_path }}
+
